@@ -60,6 +60,32 @@ Resources:
                         - issueId
                         - title
                         - status
+            /projects:
+              post:
+                x-amazon-apigateway-request-validator: "Validate body"
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${putProjectFunction.Arn}/invocations
+                  passthroughBehavior: when_no_match
+                  httpMethod: POST
+                  type: aws_proxy
+                requestBody:
+                  description: Create issue request payload
+                  required: true
+                  content:
+                    application/json:
+                      schema:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          owner:
+                            type: string
+                          description:
+                            type: string
+                        required:
+                          - name
+                          - owner
 
   # This is a Lambda function config associated with the source code: get-by-id.js
   getAllItemsFunction:
@@ -195,6 +221,36 @@ Resources:
             RestApiId:
               Ref: ApiGatewayApi
 
+  putProjectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: src/handlers/put-project.putProjectHandler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description:
+        A simple example includes a HTTP post method to add one item to
+        a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+      Environment:
+        Variables:
+          PROJECT_TABLE: !Ref ProjectsTable
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /projects
+            Method: POST
+            RestApiId:
+              Ref: ApiGatewayApi
+
   # DynamoDB table to store item: {id: &lt;ID&gt;, name: &lt;NAME&gt;}
   SampleTable:
     Type: AWS::Serverless::SimpleTable
@@ -260,6 +316,47 @@ Resources:
           ProvisionedThroughput:
             ReadCapacityUnits: 5
             WriteCapacityUnits: 5
+
+  ProjectsTable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      TableName: ProjectsTable
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: name
+          AttributeType: S
+        - AttributeName: owner
+          AttributeType: S
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: owner-index
+          KeySchema:
+            - AttributeName: owner
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: name-index
+          KeySchema:
+            - AttributeName: name
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
 
 Outputs:
   APIGatewayEndpoint:

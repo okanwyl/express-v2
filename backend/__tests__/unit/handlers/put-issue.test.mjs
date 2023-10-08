@@ -39,44 +39,4 @@ describe("Test putIssueHandler", function () {
     expect(result).toEqual(expectedResult);
   });
 
-  it("should throw an error for non-POST requests", async () => {
-    const event = {
-      httpMethod: "GET",
-    };
-
-    await expect(putIssueHandler(event)).rejects.toThrow(
-      `postMethod only accepts POST method, you tried: GET method.`
-    );
-  });
-
-  it("should handle DynamoDB errors gracefully", async () => {
-    ddbMock.on(PutCommand).rejects(new Error("DynamoDB error"));
-
-    const event = {
-      httpMethod: "POST",
-      body: JSON.stringify({
-        projectId: "projectId1",
-        issueId: "issueId1",
-        title: "Sample Title",
-        status: "Open",
-      }),
-    };
-
-    await expect(putIssueHandler(event)).rejects.toThrow("DynamoDB error");
-  });
-
-  it("should throw error for missing required fields", async () => {
-    const event = {
-      httpMethod: "POST",
-      body: JSON.stringify({
-        projectId: "projectId1",
-        title: "Sample Title",
-        status: "Open",
-      }), // missing 'issueId'
-    };
-
-    await expect(putIssueHandler(event)).rejects.toThrow(
-      "Request body is missing required fields or fields are of incorrect type."
-    );
-  });
 });

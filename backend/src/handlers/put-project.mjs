@@ -1,17 +1,14 @@
-// Create clients and set shared const values outside of the handler.
-
-// Create a DocumentClient that represents the query to add an item
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { randomUUID } from "crypto";
 
-//DynamoDB Endpoint
 const ENDPOINT_OVERRIDE = process.env.ENDPOINT_OVERRIDE;
 let ddbClient = undefined;
 
 if (ENDPOINT_OVERRIDE) {
   ddbClient = new DynamoDBClient({ endpoint: ENDPOINT_OVERRIDE });
 } else {
-  ddbClient = new DynamoDBClient({}); // Use default values for DynamoDB endpoint
+  ddbClient = new DynamoDBClient({});
   console.warn(
     "No value for ENDPOINT_OVERRIDE provided for DynamoDB, using default"
   );
@@ -19,38 +16,29 @@ if (ENDPOINT_OVERRIDE) {
 
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
-// Get the DynamoDB table name from environment variables
-const tableName = process.env.ISSUES_TABLE;
+const tableName = process.env.PROJECT_TABLE;
 
-/**
- * A simple example includes a HTTP post method to add one item to a DynamoDB table.
- */
-export const putIssueHandler = async (event) => {
+export const putProjectHandler = async (event) => {
   if (event.httpMethod !== "POST") {
     throw new Error(
       `postMethod only accepts POST method, you tried: ${event.httpMethod} method.`
     );
   }
-  // All log statements are written to CloudWatch
   console.info("received:", event);
 
-  // Get id and name from the body of the request
   const body = JSON.parse(event.body);
-  const { projectId, issueId, title, description, status, assignee, priority } =
-    body;
+  const { name, owner, description } = body;
 
+  const projectId = randomUUID();
   const params = {
     TableName: tableName,
     Item: {
       projectId,
-      issueId,
-      title,
+      name,
+      owner,
       description,
-      status,
-      assignee,
       createdDate: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
-      priority,
     },
   };
 
