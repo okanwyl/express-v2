@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  express-v2
+  sam-app
 Transform:
-- AWS::Serverless-2016-10-31
+  - AWS::Serverless-2016-10-31
 
 # Resources declares the AWS resources that you want to include in the stack
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resources-section-structure.html
@@ -19,6 +19,47 @@ Resources:
         AllowMethods: "'OPTIONS, POST, GET'"
         AllowHeaders: "'Content-Type'"
         AllowOrigin: "'*'" #DO NOT USE THIS VALUE IN PRODUCTION - https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html
+      DefinitionBody:
+        openapi: 3.0.0
+        info:
+          title: express-v2 API
+        paths:
+          /issues:
+            post:
+              x-amazon-apigateway-request-validator: "Validate body"
+              x-amazon-apigateway-integration:
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${putIssueFunction.Arn}/invocations
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+              requestBody:
+                description: Create issue request payload
+                required: true
+                content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        projectId:
+                          type: string
+                        issueId:
+                          type: string
+                        title:
+                          type: string
+                        description:
+                          type: string
+                        assignee:
+                          type: string
+                        priority:
+                          type: string
+                        status:
+                          type: string
+                      required:
+                        - projectId
+                        - issueId
+                        - title
+                        - status
 
   # This is a Lambda function config associated with the source code: get-by-id.js
   getAllItemsFunction:
@@ -28,21 +69,22 @@ Resources:
       Handler: src/handlers/get-all-items.getAllItemsHandler
       Runtime: nodejs18.x
       Architectures:
-      - x86_64
+        - x86_64
       MemorySize: 128
       Timeout: 100
-      Description: A simple example includes a HTTP get method to get all items by
+      Description:
+        A simple example includes a HTTP get method to get all items by
         id from a DynamoDB table.
       Policies:
         # Give Create/Read/Update/Delete Permissions to the SampleTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SampleTable
       Environment:
         Variables:
           # Make table name accessible as environment variable from function code during execution
           SAMPLE_TABLE: !Ref SampleTable
           # Make DynamoDB endpoint accessible as environment variable from function code during execution
-          ENDPOINT_OVERRIDE: ''
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
       Events:
         Api:
           Type: Api
@@ -62,21 +104,22 @@ Resources:
       Handler: src/handlers/get-by-id.getByIdHandler
       Runtime: nodejs18.x
       Architectures:
-      - x86_64
+        - x86_64
       MemorySize: 128
       Timeout: 100
-      Description: A simple example includes a HTTP get method to get one item by
+      Description:
+        A simple example includes a HTTP get method to get one item by
         id from a DynamoDB table.
       Policies:
         # Give Create/Read/Update/Delete Permissions to the SampleTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SampleTable
       Environment:
         Variables:
           # Make table name accessible as environment variable from function code during execution
           SAMPLE_TABLE: !Ref SampleTable
           # Make DynamoDB endpoint accessible as environment variable from function code during execution
-          ENDPOINT_OVERRIDE: ''
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
       Events:
         Api:
           Type: Api
@@ -96,20 +139,21 @@ Resources:
       Handler: src/handlers/put-item.putItemHandler
       Runtime: nodejs18.x
       Architectures:
-      - x86_64
+        - x86_64
       MemorySize: 128
       Timeout: 100
-      Description: A simple example includes a HTTP post method to add one item to
+      Description:
+        A simple example includes a HTTP post method to add one item to
         a DynamoDB table.
       Policies:
         # Give Create/Read/Update/Delete Permissions to the SampleTable
-      - DynamoDBCrudPolicy:
-          TableName: !Ref SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SampleTable
       Environment:
         Variables:
           SAMPLE_TABLE: !Ref SampleTable
           # Make DynamoDB endpoint accessible as environment variable from function code during execution
-          ENDPOINT_OVERRIDE: ''
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
       Events:
         Api:
           Type: Api
@@ -120,6 +164,36 @@ Resources:
               Ref: ApiGatewayApi
   # Simple syntax to create a DynamoDB table with a single attribute primary key, more in
   # https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlesssimpletable
+
+  putIssueFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: src/handlers/put-issue-handler.putIssueHandler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description:
+        A simple example includes a HTTP post method to add one item to
+        a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IssuesTable
+      Environment:
+        Variables:
+          ISSUES_TABLE: !Ref IssuesTable
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /issues
+            Method: POST
+            RestApiId:
+              Ref: ApiGatewayApi
 
   # DynamoDB table to store item: {id: &lt;ID&gt;, name: &lt;NAME&gt;}
   SampleTable:
@@ -132,114 +206,66 @@ Resources:
         ReadCapacityUnits: 2
         WriteCapacityUnits: 2
 
-  # S3 Bucket to host single page app website
-  WebSiteBucket:
-    Type: AWS::S3::Bucket
+  IssuesTable:
+    Type: "AWS::DynamoDB::Table"
     Properties:
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-        - BucketKeyEnabled: true
-      VersioningConfiguration:
-        Status: Enabled
-  WebSiteBucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      Bucket: !Ref WebSiteBucket
-      PolicyDocument:
-        Version: '2012-10-17'
-        Id: PolicyForCloudFrontPrivateContent
-        Statement:
-        - Sid: AllowCloudFrontServicePrincipal
-          Effect: Allow
-          Principal:
-            Service: cloudfront.amazonaws.com
-          Action: s3:GetObject
-          Resource: !Join ['', ['arn:aws:s3:::', !Ref WebSiteBucket, /*]]
-          Condition:
-            StringEquals:
-              AWS:SourceArn: !Join ['', ['arn:aws:cloudfront::', !Ref "AWS::AccountId",
-                  :distribution/, !Ref CloudFrontDistribution]]
-  # CloudFront Distribution for hosting the single page app website
-  CloudFrontDistribution:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        Origins:
-        - DomainName: !GetAtt WebSiteBucket.RegionalDomainName
-          Id: myS3Origin
-          OriginAccessControlId: !GetAtt CloudFrontOriginAccessControl.Id
-          S3OriginConfig:
-            OriginAccessIdentity: ''
-        Enabled: true
-        DefaultRootObject: index.html
-        HttpVersion: http2
-        DefaultCacheBehavior:
-          AllowedMethods:
-          - DELETE
-          - GET
-          - HEAD
-          - OPTIONS
-          - PATCH
-          - POST
-          - PUT
-          CachedMethods:
-          - GET
-          - HEAD
-          TargetOriginId: myS3Origin
-          ForwardedValues:
-            QueryString: false
-            Cookies:
-              Forward: none
-          ViewerProtocolPolicy: allow-all
-          MinTTL: 0
-          DefaultTTL: 3600
-          MaxTTL: 86400
-        PriceClass: PriceClass_200
-        Restrictions:
-          GeoRestriction:
-            RestrictionType: whitelist
-            Locations:
-            - US
-            - CA
-            - GB
-            - DE
-        ViewerCertificate:
-          CloudFrontDefaultCertificate: true
-  CloudFrontOriginAccessControl:
-    Type: AWS::CloudFront::OriginAccessControl
-    Properties:
-      OriginAccessControlConfig:
-        Name: !Sub "${WebSiteBucket} OAC"
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
-  ApplicationResourceGroup:
-    Type: AWS::ResourceGroups::Group
-    Properties:
-      Name:
-        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
-      ResourceQuery:
-        Type: CLOUDFORMATION_STACK_1_0
-  ApplicationInsightsMonitoring:
-    Type: AWS::ApplicationInsights::Application
-    Properties:
-      ResourceGroupName:
-        Ref: ApplicationResourceGroup
-      AutoConfigurationEnabled: 'true'
+      TableName: IssuesTable
+      AttributeDefinitions:
+        - AttributeName: projectId
+          AttributeType: S
+        - AttributeName: issueId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: assignee
+          AttributeType: S
+        - AttributeName: priority
+          AttributeType: S
+      KeySchema:
+        - AttributeName: projectId
+          KeyType: HASH
+        - AttributeName: issueId
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      GlobalSecondaryIndexes:
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: assignee-index
+          KeySchema:
+            - AttributeName: assignee
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: priority-index
+          KeySchema:
+            - AttributeName: priority
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+
 Outputs:
   APIGatewayEndpoint:
     Description: API Gateway endpoint URL for Prod stage
     Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
-  CloudFrontDistributionId:
-    Description: CloudFront Distribution ID for hosting web front end
-    Value: !Ref CloudFrontDistribution
-  CloudFrontDistributionDomainName:
-    Description: CloudFront Distribution Domain Name for accessing web front end
-    Value: !GetAtt CloudFrontDistribution.DomainName
-  WebS3BucketName:
-    Description: S3 Bucket for hosting web frontend
-    Value: !Ref WebSiteBucket
-# # More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
 Globals:
   Function:
     Tracing: Active

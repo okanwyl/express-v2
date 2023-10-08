@@ -1,0 +1,4 @@
+{
+  "httpMethod": "POST",
+  "body": "{ \"projectId\": \"proj1\", \"issueId\": \"issue123\", \"title\": \"Sample Issue\", \"description\": \"This is a sample issue for testing\", \"status\": \"Open\", \"assignee\": \"JohnDoe\", \"createdDate\": \"2023-10-07T12:34:56.789Z\", \"lastUpdated\": \"2023-10-07T12:34:56.789Z\", \"priority\": \"High\" }"
+}
