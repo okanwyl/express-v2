@@ -86,6 +86,25 @@ Resources:
                         required:
                           - name
                           - owner
+              get:
+                x-amazon-apigateway-request-validator: "Validate body"
+                x-amazon-apigateway-integration:
+                  uri:
+                    Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${getAllProjectsFunction.Arn}/invocations
+                  passthroughBehavior: when_no_match
+                  httpMethod: GET
+                  type: aws_proxy
+                parameters:
+                  - name: offset
+                    in: query
+                    required: false
+                    schema:
+                      type: number
+                  - name: limit
+                    in: query
+                    required: false
+                    schema:
+                      type: number
 
   # This is a Lambda function config associated with the source code: get-by-id.js
   getAllItemsFunction:
@@ -250,6 +269,37 @@ Resources:
             Method: POST
             RestApiId:
               Ref: ApiGatewayApi
+  getAllProjectsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: src/handlers/get-all-projects.getAllProjectsHandler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 100
+      Description:
+        A simple example includes a HTTP get method to get all items by
+        id from a DynamoDB table.
+      Policies:
+        # Give Create/Read/Update/Delete Permissions to the SampleTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProjectsTable
+      Environment:
+        Variables:
+          # Make table name accessible as environment variable from function code during execution
+          PROJECT_TABLE: !Ref ProjectsTable
+          # Make DynamoDB endpoint accessible as environment variable from function code during execution
+          ENDPOINT_OVERRIDE: "http://172.17.0.2:8000"
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /projects
+            Method: GET
+            RestApiId:
+              Ref: ApiGatewayApi
 
   # DynamoDB table to store item: {id: &lt;ID&gt;, name: &lt;NAME&gt;}
   SampleTable:
@@ -356,7 +406,6 @@ Resources:
       BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
-
 
 Outputs:
   APIGatewayEndpoint:
