@@ -21,11 +21,13 @@
             </div>
 
             <div v-if="!isLoading" class="divide-y divide-gray-200">
-                <div v-for="project in projects" :key="project.id" class="flex justify-between items-center py-4">
+                <div v-for="project in projects" :key="project.id" class="flex justify-between items-center py-4"
+                    @click="goToDetailPage(project.projectId)">
+
                     <div class="flex items-center">
                         <div class="avatar placeholder">
                             <div
-                                class="bg-neutral-focus text-neutral-content rounded-full w-12 h-12 flex items-center justify-center mr-4">
+                                class="bg-neutral-focus text-neutral-content text-blue-500 w-12 h-12 flex items-center justify-center mr-4">
                                 {{ project.name.substring(0, 2).toUpperCase() }}
                             </div>
                         </div>
@@ -36,20 +38,35 @@
                     </div>
 
                     <div class="flex items-center space-x-2">
-                        <img src="logo.png" alt="Team member 1" class="h-6 w-6 rounded-full">
-                        <img src="logo.png" alt="Team member 2" class="h-6 w-6 rounded-full">
+                        <!-- <img src="logo.png" alt="Team member 1" class="h-6 w-6 rounded-full">
+                        <img src="logo.png" alt="Team member 2" class="h-6 w-6 rounded-full"> -->
+                        <div class="avatar online placeholder">
+                            <div class="bg-neutral-focus text-neutral-content rounded-full w-6 h-6">
+                                <span class="text-sm">OA</span>
+                            </div>
+                        </div>
+                        <div class="avatar online placeholder">
+                            <div class="bg-neutral-focus text-neutral-content rounded-full w-6 h-6">
+                                <span class="text-sm">SL</span>
+                            </div>
+                        </div>
+                        <div class="avatar online placeholder">
+                            <div class="bg-neutral-focus text-neutral-content rounded-full w-6 h-6">
+                                <span class="text-sm">MA</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="mt-6 text-center">
-                    <button v-if="!isLoadingMore" class="btn btn-sm" @click="fetchProjects">Show more
-                        projects</button>
-                    <div v-if="isLoadingMore" class="loading loading-infinity loading-md"></div>
+            <div class="mt-6 text-center">
+                <button v-if="!isLoadingMore" class="btn btn-sm" @click="fetchProjects">Show more
+                    projects</button>
+                <div v-if="isLoadingMore" class="loading loading-infinity loading-md"></div>
 
-                </div>
             </div>
         </div>
-        </div>
+    </div>
 </template>
 
 <script>
@@ -60,7 +77,7 @@ export default {
         return {
             isLoading: true,
             projects: [],
-            limit: 2,  // Define the default page size as you need
+            limit: 10,  // Define the default page size as you need
             lastEvaluatedKey: null, // Initialized to null for the first fetch
             isLoadingMore: false,  // NEW
             allProjects: [],
@@ -112,6 +129,9 @@ export default {
             } else {
                 this.projects = [...this.allProjects];
             }
+        },
+        goToDetailPage(id) {
+            this.$router.push({ name: 'project-detail', params: { id } });
         }
     }
 };

@@ -1,8 +1,5 @@
-// Create clients and set shared const values outside of the handler.
-
-// Create a DocumentClient that represents the query to add an item
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 //DynamoDB Endpoint
 const ENDPOINT_OVERRIDE = process.env.ENDPOINT_OVERRIDE;
@@ -20,45 +17,39 @@ if (ENDPOINT_OVERRIDE) {
 const ddbDocClient = DynamoDBDocumentClient.from(ddbClient);
 
 // Get the DynamoDB table name from environment variables
-const tableName = process.env.ISSUES_TABLE;
+const tableName = process.env.PROJECT_TABLE;
 
 /**
- * A simple example includes a HTTP post method to add one item to a DynamoDB table.
+ * A simple example includes a HTTP get method to get one item by id from a DynamoDB table.
  */
-export const putIssueHandler = async (event) => {
-  if (event.httpMethod !== "POST") {
+export const getProjectByIdHandler = async (event) => {
+  if (event.httpMethod !== "GET") {
     throw new Error(
-      `postMethod only accepts POST method, you tried: ${event.httpMethod} method.`
+      `getMethod only accept GET method, you tried: ${event.httpMethod}`
     );
   }
   // All log statements are written to CloudWatch
   console.info("received:", event);
 
-  // Get id and name from the body of the request
-  const body = JSON.parse(event.body);
-  const { projectId, issueId, title, description, status, assignee, priority } =
-    body;
+  // Get id from pathParameters from APIGateway because of `/{id}` at template.yaml
 
-  const params = {
+  console.log(JSON.stringify(event.pathParameters, null, 2));
+  const id = event.pathParameters.id;
+
+  // Get the item from the table
+  // https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html#get-property
+  var params = {
     TableName: tableName,
-    Item: {
-      projectId,
-      issueId,
-      title,
-      description,
-      status,
-      assignee,
-      createdDate: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      priority,
-    },
+    Key: { projectId: id },
   };
 
+  console.log("THIS IS PARAMS =>", JSON.stringify(params, null, 2));
+
   try {
-    const data = await ddbDocClient.send(new PutCommand(params));
-    console.log("Success - item added or updated", data);
+    const data = await ddbDocClient.send(new GetCommand(params));
+    var item = data.Item;
   } catch (err) {
-    console.error("Error adding or updating item:", err.message);
+    console.error("Error retrieving item:", err.message);
     console.error("Error code:", err.code);
     console.error("Error name:", err.name);
     console.error("Error stack:", err.stack);
@@ -70,12 +61,13 @@ export const putIssueHandler = async (event) => {
     statusCode: 200,
     headers: {
       "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": "*", //DO NOT USE THIS VALUE IN PRODUCTION - https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-cors.html
       "Access-Control-Allow-Methods": "OPTIONS,POST,GET",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(item),
   };
 
+  // All log statements are written to CloudWatch
   console.info(
     `response from: ${event.path} statusCode: ${response.statusCode} body: ${response.body}`
   );
