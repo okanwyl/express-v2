@@ -11,6 +11,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "amazon-cognito-identity-js": "^6.3.6",
     "axios": "^0.22.0",
     "core-js": "^3.18.1",
     "vue": "^3.0.0",
